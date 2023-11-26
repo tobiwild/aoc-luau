@@ -1,0 +1,5 @@
+/luau
+/.cache
+/build
+*.in
+*.out
