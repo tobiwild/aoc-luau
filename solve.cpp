@@ -57,13 +57,43 @@ optional<string> read_file(string file)
     return source;
 }
 
+static string get_error_message(lua_State* L, int status)
+{
+    string error;
+
+    if (status == LUA_YIELD)
+    {
+        error = "thread yielded unexpectedly";
+    }
+    else if (const char* str = lua_tostring(L, -1))
+    {
+        error = str;
+    }
+
+    error += "\nstacktrace:\n";
+    error += lua_debugtrace(L);
+
+    return error;
+}
+
+static int lua_lines(lua_State* L)
+{
+    istream& input = useStdin ? cin : inputFile;
+    string line;
+
+    if (getline(input, line))
+        lua_pushstring(L, line.c_str());
+    else
+        lua_pushnil(L);
+
+    return 1;
+}
+
 static string run_file(lua_State* GL, string file)
 {
     optional<string> source = read_file(file);
     if (!source)
-    {
         return "Could not open " + file;
-    }
 
     lua_State* L = lua_newthread(GL);
     luaL_sandboxthread(L);
@@ -75,38 +105,24 @@ static string run_file(lua_State* GL, string file)
     int result = luau_load(L, chunkname.c_str(), bytecode, bytecodeSize, 0);
     free(bytecode);
 
+    // lua_pop(GL, 1);
+
     int status = 0;
     if (result == 0)
-    {
         status = lua_resume(L, nullptr, 0);
-    }
     else
-    {
         status = LUA_ERRSYNTAX;
-    }
 
     if (status != 0)
-    {
-        string error;
+        return get_error_message(L, status);
 
-        if (status == LUA_YIELD)
-        {
-            error = "thread yielded unexpectedly";
-        }
-        else if (const char* str = lua_tostring(L, -1))
-        {
-            error = str;
-        }
+    if (!lua_isfunction(L, -1))
+        return "Luau script does not return a function";
 
-        error += "\nstacktrace:\n";
-        error += lua_debugtrace(L);
+    lua_pushcfunction(L, lua_lines, "lines");
 
-        lua_pop(GL, 1);
-        return error;
-    }
-
-    lua_pop(GL, 1);
-    lua_xmove(L, GL, 1);
+    if ((status = lua_resume(L, nullptr, 1)) != 0)
+        return get_error_message(L, status);
 
     return "";
 }
@@ -211,19 +227,6 @@ static int lua_require(lua_State* L)
     return finishrequire(L);
 }
 
-static int lua_lines(lua_State* L)
-{
-    istream& input = useStdin ? cin : inputFile;
-    string line;
-
-    if (getline(input, line))
-        lua_pushstring(L, line.c_str());
-    else
-        lua_pushnil(L);
-
-    return 1;
-}
-
 static const luaL_Reg global_funcs[] = {
     {"loadstring", lua_loadstring},
     {"require", lua_require},
@@ -235,24 +238,6 @@ int main(int argc, char* argv[])
     if (argc < 2)
     {
         cerr << "Usage: " << argv[0] << " [Luau script] [Input file]" << endl;
-        return 1;
-    }
-
-    lua_State* L = luaL_newstate();
-    luaL_openlibs(L);
-    luaL_register(L, "_G", global_funcs);
-    luaL_sandbox(L);
-
-    string error = run_file(L, argv[1]);
-    if (!error.empty())
-    {
-        cerr << error << endl;
-        return 1;
-    }
-
-    if (!lua_isfunction(L, -1))
-    {
-        cerr << "Luau script does not return a function" << endl;
         return 1;
     }
 
@@ -268,11 +253,15 @@ int main(int argc, char* argv[])
     else
         useStdin = true;
 
-    lua_pushcfunction(L, lua_lines, "lines");
+    lua_State* L = luaL_newstate();
+    luaL_openlibs(L);
+    luaL_register(L, "_G", global_funcs);
+    luaL_sandbox(L);
 
-    if (lua_pcall(L, 1, 0, 0))
+    string error = run_file(L, argv[1]);
+    if (!error.empty())
     {
-        cerr << "Error on calling function: " << lua_tostring(L, -1) << endl;
+        cerr << error << endl;
         return 1;
     }
 
