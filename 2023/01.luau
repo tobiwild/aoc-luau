@@ -1,21 +1,21 @@
 --!strict
 -- https://adventofcode.com/2023/day/1
-local trans = {
-  one = 1,
-  two = 2,
-  three = 3,
-  four = 4,
-  five = 5,
-  six = 6,
-  seven = 7,
-  eight = 8,
-  nine = 9,
+local nums = {
+  'one',
+  'two',
+  'three',
+  'four',
+  'five',
+  'six',
+  'seven',
+  'eight',
+  'nine',
 }
 
 local function find_num(line: string): string?
-  for name, num in pairs(trans) do
-    if line:find(name, 1, true) then
-      return num
+  for i, num in nums do
+    if line:find(num, 1, true) then
+      return tostring(i)
     end
   end
   return nil
