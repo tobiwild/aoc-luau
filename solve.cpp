@@ -176,7 +176,7 @@ static int lua_require(lua_State* L)
 
     lua_pop(L, 1);
 
-    optional<string> source = read_file(name);
+    optional<string> source = read_file(name + ".luau");
     if (!source)
     {
         luaL_argerrorL(L, 1, ("error loading " + name).c_str());
