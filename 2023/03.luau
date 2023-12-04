@@ -12,24 +12,14 @@ local function grid_parse(lines: () -> string?): Grid
   return grid
 end
 
-local function nums(s: string)
-  local init = 1
-  return function()
-    local left, right, num = s:find('(%d+)', init)
-    if right then
-      init = right + 1
-    end
-    return left, right, num
-  end
-end
-
 type Num = { val: number, y: number, x1: number, x2: number }
 
 local function grid_nums(g: Grid): { Num }
   local result = {}
 
   for y, row in g do
-    for x1, x2, num in nums(row) do
+    for num, x1, x2 in lib.tonumbers(row) do
+      assert(x1)
       assert(x2)
       table.insert(result, { val = lib.tonumber(num), y = y, x1 = x1, x2 = x2 })
     end
