@@ -43,7 +43,7 @@ local function part2(seeds: { number }, maps: { { { number } } })
       seed += offset + 1
     end
   end
-  print(result)
+  return result
 end
 
 return function(lines: () -> string?)
