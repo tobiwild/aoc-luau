@@ -1,5 +1,4 @@
-local M = {}
-
+--!strict
 type PositionImpl = {
   __index: PositionImpl,
   new: (row: number, col: number) -> Position,
@@ -14,6 +13,10 @@ export type Position = typeof(setmetatable({} :: { row: number, col: number }, {
 
 local Position: PositionImpl = {} :: PositionImpl
 Position.__index = Position
+
+local M = {
+  Position = Position,
+}
 
 function Position.new(row, col)
   local self = {}
@@ -45,16 +48,13 @@ function Position:__tostring()
   return `row={self.row},col={self.col}`
 end
 
-M.Position = Position
-
-M.inspect = function(o, prefix)
-  prefix = prefix or ''
+M.inspect = function(o: any, prefix: any)
   if type(o) == 'table' and type(o['__tostring']) ~= 'function' then
     for k, v in o do
-      M.inspect(v, prefix .. `[{k}] `)
+      M.inspect(v, (prefix or '') .. `[{k}] `)
     end
   else
-    print(prefix .. tostring(o))
+    print((prefix or '') .. tostring(o))
   end
 end
 
@@ -71,6 +71,7 @@ M.tonumbers = function(s: string, radix: number?): () -> (number?, number?, numb
     if not num_s then
       return
     end
+    assert(right)
     init = right + 1
     return M.tonumber(num_s, radix), left, right
   end
@@ -87,10 +88,8 @@ end
 M.gfind = function(s: string, p: string, sinit: number?, plain: boolean?): () -> (number?, number?, ...string)
   local init = sinit or 1
   return function()
-    local res = { string.find(s, p, init, plain) }
-    if res[2] then
-      init = res[2] + 1
-    end
+    local res = { string.find(s, p, init, plain) } :: { any }
+    init = (res[2] or 0) + 1
     return unpack(res)
   end
 end
