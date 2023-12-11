@@ -1,14 +1,13 @@
 --!strict
 -- https://adventofcode.com/2023/day/10
-type Point = { x: number, y: number }
-
+local lib = require('lib')
 type Grid = { { string } }
 
-local function grid_start_pos(g: Grid): Point
+local function grid_start_pos(g: Grid): lib.Position
   for y, row in g do
     for x, c in row do
       if c == 'S' then
-        return { x = x, y = y }
+        return lib.Position.new(y, x)
       end
     end
   end
@@ -43,21 +42,20 @@ return function(lines: () -> string?)
     assert(entry)
     local pos, steps = entry.pos, entry.steps
     max_steps = math.max(max_steps, steps)
-    local cpipe = pipes[g[pos.y][pos.x]]
+    local cpipe = pipes[g[pos.row][pos.col]]
     assert(cpipe)
-    visited[`{pos.y}_{pos.x}`] = true
+    visited[pos:key()] = true
     for _, d in { { -1, 0, 4, 2 }, { 1, 0, 2, 4 }, { 0, -1, 1, 3 }, { 0, 1, 3, 1 } } do
-      local dx, dy, i1, i2 = unpack(d)
-      local n = { x = pos.x + dx, y = pos.y + dy }
-      if not g[n.y] or not g[n.y][n.x] then
+      local dcol, drow, i1, i2 = unpack(d)
+      local n = pos:delta(drow, dcol)
+      if not g[n.row] or not g[n.row][n.col] then
         continue
       end
-      local npipe = pipes[g[n.y][n.x]]
+      local npipe = pipes[g[n.row][n.col]]
       if not npipe then
         continue
       end
-      local key = `{n.y}_{n.x}`
-      if not visited[key] and cpipe[i1] == 1 and npipe[i2] == 1 then
+      if not visited[n:key()] and cpipe[i1] == 1 and npipe[i2] == 1 then
         table.insert(queue, { pos = n, steps = steps + 1 })
       end
     end

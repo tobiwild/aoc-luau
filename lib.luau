@@ -1,5 +1,55 @@
 local M = {}
 
+type PositionImpl = {
+  __index: PositionImpl,
+  new: (row: number, col: number) -> Position,
+  key: (self: Position) -> string,
+  delta: (self: Position, row: number, col: number) -> Position,
+  manhattan: (self: Position, p: Position) -> number,
+  __tostring: (self: Position) -> string,
+}
+
+export type Position = typeof(setmetatable({} :: { row: number, col: number }, {} :: PositionImpl))
+
+local Position: PositionImpl = {} :: PositionImpl
+Position.__index = Position
+
+function Position.new(row, col)
+  local self = {}
+  self.row = row
+  self.col = col
+  return setmetatable(self, Position)
+end
+
+function Position:key()
+  return `row={self.row},col={self.col}`
+end
+
+function Position:delta(row, col)
+  return Position.new(self.row + row, self.col + col)
+end
+
+function Position:manhattan(p: Position)
+  return math.abs(self.row - p.row) + math.abs(self.col - p.col)
+end
+
+function Position:__tostring()
+  return self:key()
+end
+
+M.Position = Position
+
+M.inspect = function(o, prefix)
+  prefix = prefix or ''
+  if type(o) == 'table' and type(o['__tostring']) ~= 'function' then
+    for k, v in o do
+      M.inspect(v, prefix .. `[{k}] `)
+    end
+  else
+    print(prefix .. tostring(o))
+  end
+end
+
 M.tonumber = function(value: any, radix: number?): number
   local result = tonumber(value, radix)
   assert(result, `"{value}" is not a number`)
