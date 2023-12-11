@@ -3,6 +3,7 @@ local M = {}
 type PositionImpl = {
   __index: PositionImpl,
   new: (row: number, col: number) -> Position,
+  unkey: (key: string) -> Position,
   key: (self: Position) -> string,
   delta: (self: Position, row: number, col: number) -> Position,
   manhattan: (self: Position, p: Position) -> number,
@@ -21,8 +22,15 @@ function Position.new(row, col)
   return setmetatable(self, Position)
 end
 
+function Position.unkey(key: string)
+  local row_s, col_s = key:match('(%d+),(%d+)')
+  local row = M.tonumber(row_s)
+  local col = M.tonumber(col_s)
+  return Position.new(row, col)
+end
+
 function Position:key()
-  return `row={self.row},col={self.col}`
+  return `{self.row},{self.col}`
 end
 
 function Position:delta(row, col)
@@ -34,7 +42,7 @@ function Position:manhattan(p: Position)
 end
 
 function Position:__tostring()
-  return self:key()
+  return `row={self.row},col={self.col}`
 end
 
 M.Position = Position
