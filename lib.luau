@@ -25,7 +25,7 @@ function Position.new(row, col)
   return setmetatable(self, Position)
 end
 
-function Position.unkey(key: string)
+function Position.unkey(key)
   local row_s, col_s = key:match('(%d+),(%d+)')
   local row = M.tonumber(row_s)
   local col = M.tonumber(col_s)
@@ -40,7 +40,7 @@ function Position:delta(row, col)
   return Position.new(self.row + row, self.col + col)
 end
 
-function Position:manhattan(p: Position)
+function Position:manhattan(p)
   return math.abs(self.row - p.row) + math.abs(self.col - p.col)
 end
 
@@ -48,7 +48,7 @@ function Position:__tostring()
   return `row={self.row},col={self.col}`
 end
 
-M.inspect = function(o: any, prefix: any)
+function M.inspect(o: any, prefix: string?)
   if type(o) == 'table' and type(o['__tostring']) ~= 'function' then
     for k, v in o do
       M.inspect(v, (prefix or '') .. `[{k}] `)
@@ -58,13 +58,13 @@ M.inspect = function(o: any, prefix: any)
   end
 end
 
-M.tonumber = function(value: any, radix: number?): number
+function M.tonumber(value: any, radix: number?): number
   local result = tonumber(value, radix)
   assert(result, `"{value}" is not a number`)
   return result
 end
 
-M.tonumbers = function(s: string, radix: number?): () -> (number?, number?, number?)
+function M.tonumbers(s: string, radix: number?): () -> (number?, number?, number?)
   local init = 1
   return function()
     local left, right, num_s = string.find(s, '(%d+)', init)
@@ -77,7 +77,7 @@ M.tonumbers = function(s: string, radix: number?): () -> (number?, number?, numb
   end
 end
 
-M.totable = function<T>(it: () -> T?): { T }
+function M.totable<T>(it: () -> T?): { T }
   local t = {}
   for v in it do
     table.insert(t, v)
@@ -85,7 +85,7 @@ M.totable = function<T>(it: () -> T?): { T }
   return t
 end
 
-M.gfind = function(s: string, p: string, sinit: number?, plain: boolean?): () -> (number?, number?, ...string)
+function M.gfind(s: string, p: string, sinit: number?, plain: boolean?): () -> (number?, number?, ...string)
   local init = sinit or 1
   return function()
     local res = { string.find(s, p, init, plain) } :: { any }
