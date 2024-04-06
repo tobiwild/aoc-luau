@@ -48,13 +48,32 @@ function Position:__tostring()
   return `row={self.row},col={self.col}`
 end
 
-function M.inspect(o: any, prefix: string?)
-  if type(o) == 'table' and type(o['__tostring']) ~= 'function' then
-    for k, v in o do
-      M.inspect(v, (prefix or '') .. `[{k}] `)
+function M.inspect(...)
+  local args = { ... }
+  local do_print = true
+  for i, o in args do
+    if type(o) == 'table' and type(o['__tostring']) ~= 'function' then
+      args[i] = ''
+      for k, v in o do
+        do_print = false
+        local new_args = table.create(#args + 1)
+        for j = 1, i - 1 do
+          new_args[j] = args[j]
+        end
+        new_args[i] = `[{k}]`
+        new_args[i + 1] = v
+        for j = i + 1, #args do
+          new_args[j + 1] = args[j]
+        end
+        M.inspect(unpack(new_args))
+      end
+      if not do_print then
+        return
+      end
     end
-  else
-    print((prefix or '') .. tostring(o))
+  end
+  if do_print then
+    print(unpack(args))
   end
 end
 
