@@ -1,6 +1,6 @@
 --!strict
 -- https://adventofcode.com/2023/day/3
-local lib = require('lib')
+local lib = require('../lib')
 
 type Grid = { string }
 

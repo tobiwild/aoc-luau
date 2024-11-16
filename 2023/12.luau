@@ -1,7 +1,7 @@
 --!strict
 -- https://adventofcode.com/2023/day/12
 
-local lib = require('lib')
+local lib = require('../lib')
 local function is_valid(springs: string, sizes: { number })
   local i = 0
   for group in springs:gmatch('#+') do

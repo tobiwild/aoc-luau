@@ -1,5 +1,8 @@
 #include <iostream>
 #include <fstream>
+#include <optional>
+#include <string>
+#include <vector>
 
 #include "lua.h"
 #include "lualib.h"
@@ -7,12 +10,14 @@
 
 using namespace std;
 
-// This file contains modified code from https://github.com/luau-lang/luau/blob/1cda8304bf085b955109f9cc32cd51b581cdff54/CLI/Repl.cpp
-// which was released under the following license:
+// This file contains modified code from
+//
+// - https://github.com/luau-lang/luau/blob/1cda8304bf085b955109f9cc32cd51b581cdff54/CLI/Repl.cpp
+// - https://github.com/luau-lang/luau/blob/e905e305702388543dac9040667968c0b856506d/CLI/FileUtils.cpp
 //
 // MIT License
 //
-// Copyright (c) 2019-2023 Roblox Corporation
+// Copyright (c) 2019-2024 Roblox Corporation
 // Copyright (c) 1994–2019 Lua.org, PUC-Rio.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -35,6 +40,128 @@ using namespace std;
 
 static ifstream inputFile;
 static bool useStdin;
+
+bool isAbsolutePath(string_view path)
+{
+    // Must begin with '/'
+    return path.size() >= 1 && path[0] == '/';
+}
+
+vector<string_view> splitPath(string_view path)
+{
+    vector<string_view> components;
+
+    size_t pos = 0;
+    size_t nextPos = path.find_first_of("\\/", pos);
+
+    while (nextPos != string::npos)
+    {
+        components.push_back(path.substr(pos, nextPos - pos));
+        pos = nextPos + 1;
+        nextPos = path.find_first_of("\\/", pos);
+    }
+    components.push_back(path.substr(pos));
+
+    return components;
+}
+
+// Takes a path that is relative to the file at baseFilePath and returns the path explicitly rebased onto baseFilePath.
+// For absolute paths, baseFilePath will be ignored, and this function will resolve the path to a canonical path:
+// (e.g. "/Users/.././Users/johndoe" -> "/Users/johndoe").
+string resolvePath(string_view path, string_view baseFilePath)
+{
+    vector<string_view> pathComponents;
+    vector<string_view> baseFilePathComponents;
+
+    // Dependent on whether the final resolved path is absolute or relative
+    // - if relative (when path and baseFilePath are both relative), resolvedPathPrefix remains empty
+    // - if absolute (if either path or baseFilePath are absolute), resolvedPathPrefix is "C:\", "/", etc.
+    string resolvedPathPrefix;
+    bool isResolvedPathRelative = false;
+
+    if (isAbsolutePath(path))
+    {
+        // path is absolute, we use path's prefix and ignore baseFilePath
+        size_t afterPrefix = path.find_first_of("\\/") + 1;
+        resolvedPathPrefix = path.substr(0, afterPrefix);
+        pathComponents = splitPath(path.substr(afterPrefix));
+    }
+    else
+    {
+        size_t afterPrefix = baseFilePath.find_first_of("\\/") + 1;
+        baseFilePathComponents = splitPath(baseFilePath.substr(afterPrefix));
+        if (isAbsolutePath(baseFilePath))
+        {
+            // path is relative and baseFilePath is absolute, we use baseFilePath's prefix
+            resolvedPathPrefix = baseFilePath.substr(0, afterPrefix);
+        }
+        else
+        {
+            // path and baseFilePath are both relative, we do not set a prefix (resolved path will be relative)
+            isResolvedPathRelative = true;
+        }
+        pathComponents = splitPath(path);
+    }
+
+    // Remove filename from components
+    if (!baseFilePathComponents.empty())
+        baseFilePathComponents.pop_back();
+
+    // Resolve the path by applying pathComponents to baseFilePathComponents
+    int numPrependedParents = 0;
+    for (string_view component : pathComponents)
+    {
+        if (component == "..")
+        {
+            if (baseFilePathComponents.empty())
+            {
+                if (isResolvedPathRelative)
+                    numPrependedParents++;      // "../" will later be added to the beginning of the resolved path
+            }
+            else if (baseFilePathComponents.back() != "..")
+            {
+                baseFilePathComponents.pop_back(); // Resolve cases like "folder/subfolder/../../file" to "file"
+            }
+        }
+        else if (component != "." && !component.empty())
+        {
+            baseFilePathComponents.push_back(component);
+        }
+    }
+
+    // Create resolved path prefix for relative paths
+    if (isResolvedPathRelative)
+    {
+        if (numPrependedParents > 0)
+        {
+            resolvedPathPrefix.reserve(numPrependedParents * 3);
+            for (int i = 0; i < numPrependedParents; i++)
+            {
+                resolvedPathPrefix += "../";
+            }
+        }
+        else
+        {
+            resolvedPathPrefix = "./";
+        }
+    }
+
+    // Join baseFilePathComponents to form the resolved path
+    string resolvedPath = resolvedPathPrefix;
+    for (auto iter = baseFilePathComponents.begin(); iter != baseFilePathComponents.end(); ++iter)
+    {
+        if (iter != baseFilePathComponents.begin())
+            resolvedPath += "/";
+
+        resolvedPath += *iter;
+    }
+    if (resolvedPath.size() > resolvedPathPrefix.size() && resolvedPath.back() == '/')
+    {
+        // Remove trailing '/' if present
+        resolvedPath.pop_back();
+    }
+    return resolvedPath;
+}
 
 optional<string> read_file(string file)
 {
@@ -91,6 +218,7 @@ static int lua_lines(lua_State* L)
 
 static string run_file(lua_State* GL, string file)
 {
+    file = resolvePath(file, "");
     optional<string> source = read_file(file);
     if (!source)
         return "Could not open " + file;
@@ -162,6 +290,25 @@ static int lua_loadstring(lua_State* L)
 static int lua_require(lua_State* L)
 {
     string name = luaL_checkstring(L, 1);
+
+    lua_Debug ar;
+    lua_getinfo(L, 1, "s", &ar);
+    string sourcePath = ar.source;
+    if (sourcePath.length() > 1 && sourcePath.at(0) == '=')
+    {
+        sourcePath.erase(0, 1);
+        sourcePath = resolvePath(sourcePath, "");
+        sourcePath = sourcePath.substr(0, sourcePath.find_last_of('/'));
+        sourcePath += "/";
+    }
+    else
+    {
+        sourcePath = "";
+    }
+    // TODO: sourcePath needs to be normalized ("dir1/dir2/../dir3" -> "dir1/dir3")
+    name = sourcePath + name + ".luau";
+    name = resolvePath(name, "");
+
     string chunkname = "=" + name;
 
     luaL_findtable(L, LUA_REGISTRYINDEX, "_MODULES", 1);
@@ -176,7 +323,7 @@ static int lua_require(lua_State* L)
 
     lua_pop(L, 1);
 
-    optional<string> source = read_file(name + ".luau");
+    optional<string> source = read_file(name);
     if (!source)
     {
         luaL_argerrorL(L, 1, ("error loading " + name).c_str());
@@ -237,7 +384,7 @@ int main(int argc, char* argv[])
 {
     if (argc < 2)
     {
-        cerr << "Usage: " << argv[0] << " [Luau script] [Input file]" << endl;
+        cerr << "Usage: " << argv[0] << " <script> <input>" << endl;
         return 1;
     }
 

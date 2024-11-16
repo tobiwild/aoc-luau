@@ -1,6 +1,6 @@
 --!strict
 -- https://adventofcode.com/2023/day/11
-local lib = require('lib')
+local lib = require('../lib')
 local function get_sum(lines: { string }, expand: number)
   local galaxies = {}
   local empty_cols = {}

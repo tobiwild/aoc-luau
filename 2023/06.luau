@@ -1,6 +1,6 @@
 --!strict
 -- https://adventofcode.com/2023/day/6
-local lib = require('lib')
+local lib = require('../lib')
 
 local function _solve_simple(times: { number }, distances: { number })
   assert(#times > 0)

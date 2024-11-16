@@ -1,6 +1,6 @@
 --!strict
 -- https://adventofcode.com/2023/day/5
-local lib = require('lib')
+local lib = require('../lib')
 
 local function get_location(seed: number, maps: { { { number } } })
   local offset = nil

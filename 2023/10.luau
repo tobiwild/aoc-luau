@@ -1,6 +1,6 @@
 --!strict
 -- https://adventofcode.com/2023/day/10
-local lib = require('lib')
+local lib = require('../lib')
 type Grid = { { string } }
 
 local function grid_start_pos(g: Grid): lib.Position

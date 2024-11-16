@@ -1,6 +1,6 @@
 --!strict
 -- https://adventofcode.com/2023/day/4
-local lib = require('lib')
+local lib = require('../lib')
 return function(lines: () -> string?)
   local part1 = 0
   local part2 = 0
